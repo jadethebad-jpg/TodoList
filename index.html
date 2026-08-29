@@ -7,38 +7,51 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; background-color: #f4f4f9; padding: 40px; }
-        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
         h2 { margin-top: 0; color: #333; }
-        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex-grow: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-        button { cursor: pointer; padding: 8px 16px; background: #3ecf8e; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        
+        .input-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .input-row { display: flex; gap: 10px; }
+        input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        
+        button.add-btn { cursor: pointer; padding: 10px 20px; background: #3ecf8e; color: white; border: none; border-radius: 4px; font-weight: bold; transition: background 0.2s; }
+        button.add-btn:hover { background: #36b87d; }
+
         ul { list-style: none; padding: 0; }
-        li { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
-        .todo-text { cursor: pointer; flex-grow: 1; }
-        .completed { text-decoration: line-through; color: #888; }
-        .del-btn { background: #ff4d4d; font-size: 12px; padding: 4px 8px; }
+        li { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px; border-bottom: 1px solid #eee; }
+        
+        .todo-content { cursor: pointer; flex-grow: 1; display: flex; flex-direction: column; gap: 4px; }
+        .todo-text { font-weight: 500; font-size: 16px; color: #333; }
+        .todo-notes { font-size: 12px; color: #777; font-style: italic; }
+        
+        .completed .todo-text, .completed .todo-notes { text-decoration: line-through; color: #bbb; }
+        
+        .del-btn { background: #ff4d4d; color: white; border: none; border-radius: 4px; font-size: 11px; padding: 6px 10px; cursor: pointer; margin-left: 10px; }
+        .del-btn:hover { background: #e60000; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>Project Tasks</h2>
-    <div class="input-group">
-        <input type="text" id="taskInput" placeholder="What needs to be done?">
-        <button onclick="addTodo()">Add</button>
+    <div class="input-container">
+        <input type="text" id="taskInput" placeholder="Task name...">
+        <div class="input-row">
+            <input type="text" id="notesInput" placeholder="Add a note (optional)...">
+            <button class="add-btn" onclick="addTodo()">Add Task</button>
+        </div>
     </div>
     <ul id="todoList"></ul>
 </div>
 
 <script>
     // API CONNECTIONS
-    // Replace 'YOUR_SUPABASE_URL' with your actual Project URL from Settings > API
+    // Use your base Project URL (e.g., https://xyz.supabase.co)
     const SUPABASE_URL = 'https://bahedgvyxoyidgikqwsg.supabase.co/rest/v1/'; 
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhaGVkZ3Z5eG95aWRnaWtxd3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5ODA3NTgsImV4cCI6MjEwMzU1Njc1OH0.XzUYKKOLau01wG5BQfTlHTopBaYCv4KMBnTrvPMZfrI';
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Load initial data
     fetchTodos();
 
     async function fetchTodos() {
@@ -56,11 +69,13 @@
         listElement.innerHTML = '';
         data.forEach(todo => {
             const li = document.createElement('li');
+            if (todo.is_completed) li.classList.add('completed');
+            
             li.innerHTML = `
-                <span class="todo-text ${todo.is_completed ? 'completed' : ''}" 
-                      onclick="toggleTodo(${todo.id}, ${todo.is_completed})">
-                    ${todo.task}
-                </span>
+                <div class="todo-content" onclick="toggleTodo(${todo.id}, ${todo.is_completed})">
+                    <span class="todo-text">${todo.task}</span>
+                    ${todo.notes ? `<span class="todo-notes">${todo.notes}</span>` : ''}
+                </div>
                 <button class="del-btn" onclick="deleteTodo(${todo.id})">Delete</button>
             `;
             listElement.appendChild(li);
@@ -68,17 +83,25 @@
     }
 
     async function addTodo() {
-        const input = document.getElementById('taskInput');
-        const task = input.value;
+        const taskInput = document.getElementById('taskInput');
+        const notesInput = document.getElementById('notesInput');
+        
+        const task = taskInput.value;
+        const notes = notesInput.value;
+
         if (!task) return;
 
         const { error } = await supabaseClient
             .from('todos')
-            .insert([{ task: task }]);
+            .insert([{ task: task, notes: notes }]);
 
-        if (error) console.error('Error adding:', error.message);
-        input.value = '';
-        fetchTodos();
+        if (error) {
+            console.error('Error adding:', error.message);
+        } else {
+            taskInput.value = '';
+            notesInput.value = '';
+            fetchTodos();
+        }
     }
 
     async function toggleTodo(id, currentStatus) {
